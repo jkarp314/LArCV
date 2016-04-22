@@ -21,7 +21,7 @@ namespace larcv {
     _adc_max  = cfg.get<float> ( "ADC_MAX" );
 
     _imin = cfg.get<float> ("iMin");
-    _imax = cfg.get<float> ("iMin");
+    _imax = cfg.get<float> ("iMax");
      
     _plane_image = cfg.get<size_t>( "Plane" );
 
@@ -60,8 +60,8 @@ namespace larcv {
 
 	auto px = plane_img.pixel(i,j);
 	
-	if ( px > 400) px = 400;
-	if ( px < 5  ) px = 0;
+	if ( px > _imax ) px = _imax;
+	if ( px < _imin ) px = 0;
 	
 	color(px,r,g,b);
 
