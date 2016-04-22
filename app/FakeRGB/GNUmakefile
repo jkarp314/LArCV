@@ -1,7 +1,7 @@
 #
 # This is an example GNUmakefile for my packages
 #
-PACKAGE_NAME = GetRGB
+PACKAGE_NAME = FakeRGB
 
 # specific names for this package
 SOURCES = $(wildcard *.cxx)

@@ -1,9 +1,9 @@
 /**
- * \file GetRGB.h
+ * \file FakeRGB.h
  *
  * \ingroup Package_Name
  * 
- * \brief Class def header for a class GetRGB
+ * \brief Class def header for a class FakeRGB
  *
  * @author vgenty
  */
@@ -11,8 +11,8 @@
 /** \addtogroup Package_Name
 
     @{*/
-#ifndef __GETRGB_H__
-#define __GETRGB_H__
+#ifndef __FAKERGB_H__
+#define __FAKERGB_H__
 
 #include "Processor/ProcessBase.h"
 #include "Processor/ProcessFactory.h"
@@ -20,18 +20,18 @@ namespace larcv {
 
   /**
      \class ProcessBase
-     User defined class GetRGB ... these comments are used to generate
+     User defined class FakeRGB ... these comments are used to generate
      doxygen documentation!
   */
-  class GetRGB : public ProcessBase {
+  class FakeRGB : public ProcessBase {
 
   public:
     
     /// Default constructor
-    GetRGB(const std::string name="GetRGB");
+    FakeRGB(const std::string name="FakeRGB");
     
     /// Default destructor
-    ~GetRGB(){}
+    ~FakeRGB(){}
 
     void configure(const PSet&);
 
@@ -64,17 +64,17 @@ namespace larcv {
   };
 
   /**
-     \class larcv::GetRGBFactory
-     \brief A concrete factory class for larcv::GetRGB
+     \class larcv::FakeRGBFactory
+     \brief A concrete factory class for larcv::FakeRGB
   */
-  class GetRGBProcessFactory : public ProcessFactoryBase {
+  class FakeRGBProcessFactory : public ProcessFactoryBase {
   public:
     /// ctor
-    GetRGBProcessFactory() { ProcessFactory::get().add_factory("GetRGB",this); }
+    FakeRGBProcessFactory() { ProcessFactory::get().add_factory("FakeRGB",this); }
     /// dtor
-    ~GetRGBProcessFactory() {}
+    ~FakeRGBProcessFactory() {}
     /// creation method
-    ProcessBase* create(const std::string instance_name) { return new GetRGB(instance_name); }
+    ProcessBase* create(const std::string instance_name) { return new FakeRGB(instance_name); }
   };
 
 }

@@ -2,6 +2,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 import numpy as np
+def normalize_image(image):
+    a = np.min(image)
+    b = np.max(image)
+
+    return (image - a) / (b - a)
+
 import sys,os
 
 from ROOT import larcv
@@ -30,9 +36,19 @@ imm = imm[::-1,:,:]
 imm = imm[:, :, (2, 1, 0)] 
 
 fig,ax = plt.subplots(figsize = (12,12))
-plt.imshow(imm)
 
+ax = plt.subplot(2,2,1)
+plt.imshow(normalize_image(imm))
 plt.axis('off')
+
+for i in xrange(3):
+    i+=1
+    ax = plt.subplot(2,2,i+1)
+    plt.imshow(imm[:,:,i-1],cmap='gray')
+    ax.set_title("Channel: {}".format(i))
+    plt.axis('off')
+    
+plt.tight_layout()
 plt.show()
 
 iom.finalize()

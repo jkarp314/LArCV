@@ -1,19 +1,19 @@
-#ifndef __GETRGB_CXX__
-#define __GETRGB_CXX__
+#ifndef __FAKERGB_CXX__
+#define __FAKERGB_CXX__
 
-#include "GetRGB.h"
+#include "FakeRGB.h"
 #include "DataFormat/Image2D.h"
 #include "DataFormat/EventImage2D.h"
 
 namespace larcv {
 
-  static GetRGBProcessFactory __global_GetRGBProcessFactory__;
+  static FakeRGBProcessFactory __global_FakeRGBProcessFactory__;
 
-  GetRGB::GetRGB(const std::string name)
+  FakeRGB::FakeRGB(const std::string name)
     : ProcessBase(name)
   {}
 
-  void GetRGB::configure(const PSet& cfg)
+  void FakeRGB::configure(const PSet& cfg)
   {
     _baseline = cfg.get<float> ( "ADC_Baseline" );
     _adc_mip  = cfg.get<float> ( "ADC_MIP" );
@@ -29,10 +29,10 @@ namespace larcv {
     _out_img_producer = cfg.get<std::string>( "OutputImageProducer" );
   }
 
-  void GetRGB::initialize()
+  void FakeRGB::initialize()
   {}
 
-  bool GetRGB::process(IOManager& mgr)
+  bool FakeRGB::process(IOManager& mgr)
   {
 
     //input
@@ -45,6 +45,7 @@ namespace larcv {
     // let's take just the Y plane
     const auto& plane_img = tpc_event_image_v->Image2DArray()[ _plane_image ];
     const auto& plane_meta = plane_img.meta();
+
     //allocate the space for 3 fake planes
     std::vector<Image2D> fake_color;
     fake_color.reserve(3);
@@ -56,6 +57,7 @@ namespace larcv {
     
     for(unsigned i = 0; i < plane_meta.rows(); ++i) {
       for(unsigned j = 0; j < plane_meta.cols(); ++j) {
+
 	float r,g,b;
 
 	auto px = plane_img.pixel(i,j);
@@ -65,14 +67,15 @@ namespace larcv {
 	
 	color(px,r,g,b);
 
-	r *= 255;
-	g *= 255;
-	b *= 255;
+	r *= 255.0;
+	g *= 255.0;
+	b *= 255.0;
 			
 	
 	fake_color[0].set_pixel(i,j,b);
 	fake_color[1].set_pixel(i,j,g);
 	fake_color[2].set_pixel(i,j,r);
+	
       }
     }
 
@@ -81,12 +84,12 @@ namespace larcv {
     return true;
   }
 
-  void GetRGB::finalize(TFile* ana_file)
+  void FakeRGB::finalize(TFile* ana_file)
   {}
 
 
   //thanks kazu
-  void GetRGB::color( float ADC, float&r, float&g, float& b ) {
+  void FakeRGB::color( float ADC, float&r, float&g, float& b ) {
 
     // out of range                                                                                                                             
     if ( ADC<_adc_min ) {
