@@ -5,6 +5,8 @@
 #include "DataFormat/Image2D.h"
 #include "DataFormat/EventImage2D.h"
 
+#include "DataFormat/EventROI.h"
+
 namespace larcv {
 
   static FakeRGBProcessFactory __global_FakeRGBProcessFactory__;
@@ -27,6 +29,9 @@ namespace larcv {
 
     _in_img_producer  = cfg.get<std::string>( "InputImageProducer" );
     _out_img_producer = cfg.get<std::string>( "OutputImageProducer" );
+
+    _in_roi_producer  = cfg.get<std::string>( "InputROIProducer" );
+    _out_roi_producer = cfg.get<std::string>( "OutputROIProducer" );
   }
 
   void FakeRGB::initialize()
@@ -37,10 +42,11 @@ namespace larcv {
 
     //input
     auto tpc_event_image_v = (EventImage2D*)(mgr.get_data(kProductImage2D,_in_img_producer));
-    if(!tpc_event_image_v || tpc_event_image_v->Image2DArray().empty()) return false;
+    auto tpc_event_roi_v = (EventROI*)(mgr.get_data(kProductROI,_in_roi_producer));
 
     //output
     auto out_image_v = (EventImage2D*)(mgr.get_data(kProductImage2D,_out_img_producer));
+    auto out_roi_v   = (EventROI*)(mgr.get_data(kProductROI,_out_roi_producer));
     
     // let's take just the Y plane
     const auto& plane_img = tpc_event_image_v->Image2DArray()[ _plane_image ];
@@ -80,7 +86,7 @@ namespace larcv {
     }
 
     out_image_v->Emplace(std::move(fake_color));
-
+    out_roi_v = tpc_event_roi_v;
     return true;
   }
 

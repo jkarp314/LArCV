@@ -59,6 +59,10 @@ namespace larcv {
     std::string _out_img_producer;
 
 
+    std::string _in_roi_producer;
+    std::string _out_roi_producer;
+
+
 
     
   };
