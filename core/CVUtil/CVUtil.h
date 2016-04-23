@@ -15,6 +15,9 @@ namespace larcv {
   Image2D imread(const std::string file_name);
   Image2D imread_gray(const std::string file_name);
 
+  std::vector<Image2D> imread_v(const std::string file_name);
+
+
 }
 
 #endif

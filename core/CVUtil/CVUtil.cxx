@@ -25,6 +25,39 @@ namespace larcv {
     return img;
   }
 
+  std::vector<Image2D> imread_v(const std::string file_name) {
+
+    ::cv::Mat image;
+    image = ::cv::imread(file_name.c_str(), CV_LOAD_IMAGE_COLOR);
+    
+    std::vector<Image2D> img_v;
+    img_v.reserve(3);
+    for(unsigned i=0;i<3;++i) {
+      ImageMeta meta(image.cols,image.rows,image.cols, image.rows, 0., 0.);
+      Image2D larcv_img(meta);
+      img_v.emplace_back(std::move(larcv_img));
+    }
+
+      
+    unsigned char* px_ptr = (unsigned char*)image.data;
+    int cn = image.channels();
+    
+    for(int i=0;i<image.rows;i++) {
+      for (int j=0;j<image.cols;j++) {
+	float b = (float)(px_ptr[i*image.cols*cn + j*cn + 0]);
+	float g = (float)(px_ptr[i*image.cols*cn + j*cn + 1]);
+	float r = (float)(px_ptr[i*image.cols*cn + j*cn + 2]);
+	
+	img_v[ 0 ].set_pixel(j,i,b);
+	img_v[ 1 ].set_pixel(j,i,g);
+	img_v[ 2 ].set_pixel(j,i,r);
+      }
+    }
+    return img_v;
+
+  }
+  
+
   Image2D imread(const std::string file_name)
   {
     ::cv::Mat image;
