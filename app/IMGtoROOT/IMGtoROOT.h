@@ -1,9 +1,9 @@
 /**
- * \file FakeRGB.h
+ * \file IMGtoROOT.h
  *
  * \ingroup Package_Name
  * 
- * \brief Class def header for a class FakeRGB
+ * \brief Class def header for a class IMGtoROOT
  *
  * @author vgenty
  */
@@ -11,8 +11,8 @@
 /** \addtogroup Package_Name
 
     @{*/
-#ifndef __FAKERGB_H__
-#define __FAKERGB_H__
+#ifndef __IMGTOROOT_H__
+#define __IMGTOROOT_H__
 
 #include "Processor/ProcessBase.h"
 #include "Processor/ProcessFactory.h"
@@ -20,18 +20,18 @@ namespace larcv {
 
   /**
      \class ProcessBase
-     User defined class FakeRGB ... these comments are used to generate
+     User defined class IMGtoROOT ... these comments are used to generate
      doxygen documentation!
   */
-  class FakeRGB : public ProcessBase {
+  class IMGtoROOT : public ProcessBase {
 
   public:
     
     /// Default constructor
-    FakeRGB(const std::string name="FakeRGB");
+    IMGtoROOT(const std::string name="IMGtoROOT");
     
     /// Default destructor
-    ~FakeRGB(){}
+    ~IMGtoROOT(){}
 
     void configure(const PSet&);
 
@@ -53,17 +53,17 @@ namespace larcv {
   };
 
   /**
-     \class larcv::FakeRGBFactory
-     \brief A concrete factory class for larcv::FakeRGB
+     \class larcv::IMGtoROOTFactory
+     \brief A concrete factory class for larcv::IMGtoROOT
   */
-  class FakeRGBProcessFactory : public ProcessFactoryBase {
+  class IMGtoROOTProcessFactory : public ProcessFactoryBase {
   public:
     /// ctor
-    FakeRGBProcessFactory() { ProcessFactory::get().add_factory("FakeRGB",this); }
+    IMGtoROOTProcessFactory() { ProcessFactory::get().add_factory("IMGtoROOT",this); }
     /// dtor
-    ~FakeRGBProcessFactory() {}
+    ~IMGtoROOTProcessFactory() {}
     /// creation method
-    ProcessBase* create(const std::string instance_name) { return new FakeRGB(instance_name); }
+    ProcessBase* create(const std::string instance_name) { return new IMGtoROOT(instance_name); }
   };
 
 }

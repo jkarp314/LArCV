@@ -1,9 +1,9 @@
-#ifndef __FAKERGB_CXX__
-#define __FAKERGB_CXX__
+#ifndef __IMGTOROOT_CXX__
+#define __IMGTOROOT_CXX__
 
-#include "FakeRGB.h"
+#include "IMGtoROOT.h"
 
-#include <ifstream>
+#include <fstream>
 
 #include "DataFormat/Image2D.h"
 #include "DataFormat/EventImage2D.h"
@@ -12,37 +12,37 @@
 
 namespace larcv {
   
-  static FakeRGBProcessFactory __global_FakeRGBProcessFactory__;
+  static IMGtoROOTProcessFactory __global_IMGtoROOTProcessFactory__;
   
-  FakeRGB::FakeRGB(const std::string name)
+  IMGtoROOT::IMGtoROOT(const std::string name)
     : ProcessBase(name)
   {}
 
-  void FakeRGB::configure(const PSet& cfg)
+  void IMGtoROOT::configure(const PSet& cfg)
   {
     _file_list          = cfg.get<std::string>( "FileList" );
     _out_image_producer = cfg.get<std::string>( "OutputImageProducer" );
   }
 
-  void FakeRGB::initialize()
+  void IMGtoROOT::initialize()
   {
 
-    LARCV_INFO << "Loading " << _file_list;
+    LARCV_INFO() << "Loading " << _file_list;
     std::ifstream source_file(_file_list.c_str());
     
     if (source_file.is_open()) {
       std::string line;
       while (source_file >> line) {
-	LARCV_INFO << "Got" << line;
+	LARCV_INFO() << "Got" << line;
 	_image_v.emplace_back(line);
       }
     } else {
-      LARCV_CRITICAL << "Failed to open source file: " << source;
+      LARCV_CRITICAL() << "Failed to open source file: " << _file_list;
     }
     source_file.close();
   }
 
-  bool FakeRGB::process(IOManager& mgr)
+  bool IMGtoROOT::process(IOManager& mgr)
   {
 
     //output
@@ -56,13 +56,15 @@ namespace larcv {
       
       out_image_v->Emplace(std::move(image2d_v));
     }
-  
+
+
+    mgr.finalize();
     return true;
   }
   
-  void FakeRGB::finalize(TFile* ana_file)
+  void IMGtoROOT::finalize(TFile* ana_file)
   {   
-    mgr.finalize();
+
   }
 
 
