@@ -25,7 +25,8 @@ namespace larcv {
       fDivisionFile       = cfg.get<std::string>("DivisionFile");
       fNPlanes            = cfg.get<int>( "NPlanes", 3 );
       fTickStart          = cfg.get<int>( "TickStart", 2400 );
-      fTickDownSample     = cfg.get<int>( "TickDownSampleFactor", 6 );
+      fTickPreCompression = cfg.get<int>( "TickPreCompression", 6 );
+      fWirePreCompression = cfg.get<int>( "WirePreCompression", 1 );
       fMaxWireImageWidth  = cfg.get<int>( "MaxWireImageWidth" );
       fInputPMTProducer   = cfg.get<std::string>( "InputPMTProducer" );
       fInputROIProducer   = cfg.get<std::string>( "InputROIProducer" );
@@ -86,15 +87,19 @@ namespace larcv {
 	  plane0[i] = (int)planebounds[0][i];
 	  plane1[i] = (int)planebounds[1][i];
 	  plane2[i] = (int)planebounds[2][i];
-	  tickbounds[i] *= fTickDownSample;
+	  tickbounds[i] *= fTickPreCompression;
 	  tickbounds[i] += fTickStart;
 	}
-// 	std::cout << "division entry " << entry << ": ";
-// 	std::cout << " p0: [" << plane0[0] << "," << plane0[1] << "]";
-// 	std::cout << " p1: [" << plane1[0] << "," << plane1[1] << "]";
-// 	std::cout << " p2: [" << plane2[0] << "," << plane2[1] << "]";
-// 	std::cout << " t: ["  << tickbounds[0] << "," << tickbounds[1] << "]";
-// 	std::cout << std::endl;
+	plane0[1] += fWirePreCompression;
+	plane1[1] += fWirePreCompression;
+	plane2[1] += fWirePreCompression;
+	tickbounds[1] += fTickPreCompression;
+ 	LARCV_DEBUG() << "division entry " << entry << ": "
+		      << " p0: [" << plane0[0] << "," << plane0[1] << "]"
+		      << " p1: [" << plane1[0] << "," << plane1[1] << "]"
+		      << " p2: [" << plane2[0] << "," << plane2[1] << "]"
+		      << " t: ["  << tickbounds[0] << "," << tickbounds[1] << "]"
+		      << std::endl;
 	
 	DivisionDef div( plane0, plane1, plane2, tickbounds, xbounds, ybounds, zbounds );
 	
@@ -107,17 +112,24 @@ namespace larcv {
       if ( fMaxWireInRegion>fMaxWireImageWidth )
 	fMaxWireImageWidth = fMaxWireInRegion;
 
+      LARCV_INFO() << "MaxWireImageWidth: " << fMaxWireImageWidth << std::endl;
+
       for (int p=0; p<fNPlanes; p++) {
 	delete [] planebounds[p];
       }
       delete [] planebounds;
       
       f->Close();
-      
+
+      fProcessedEvent=0;
+      fROISkippedEvent=0;
+      fProcessedROI=0;
+      fROISkipped=0;
     }
     
     bool HiResImageDivider::process(IOManager& mgr)
     {
+      ++fProcessedEvent;
       // This processor does the following:
       // 1) read in hi-res images (from producer specified in config)
       // 2) (how to choose which one we clip?)
@@ -127,18 +139,19 @@ namespace larcv {
       static const ProducerID_t roi_producer_id = mgr.producer_id(::larcv::kProductROI,fInputROIProducer);
       
       larcv::ROI roi;
+      bool hasmc = false;
       if(roi_producer_id != kINVALID_PRODUCER) {
-	LARCV_INFO() << "ROI by producer " << fInputROIProducer << " found. Searching for kROIBNB..." << std::endl;
+	LARCV_INFO() << "ROI by producer " << fInputROIProducer << " found. Searching for MC ROI..." << std::endl;
 	auto event_roi = (larcv::EventROI*)(mgr.get_data(roi_producer_id));
 	for ( auto const& aroi : event_roi->ROIArray() ) 
-	  if ( isInteresting(aroi) ) { roi = aroi; break; }
+	  if ( isInteresting(aroi) ) { roi = aroi; hasmc=true; break; }
       }else{
 	LARCV_INFO() << "ROI by producer " << fInputROIProducer << " not found. Constructing Cosmic ROI..." << std::endl;
 	// Input ROI did not exist. Assume this means cosmics and create one
 	roi.Type(kROICosmic);
 	// FIXME: need a way to get detector dimension somehow...
 	const double zmin = 0;
-	const double zmax = 1060;
+	const double zmax = 1036.0;
 	const double ymin = -116.;
 	const double ymax = 116.;
 	const double xmin = 0.;
@@ -153,6 +166,7 @@ namespace larcv {
 		      dis(gen) * (zmax - zmin) + zmin,
 		      dis(gen) * (tmax - tmin) + tmin);
       }
+      
       if(!isInteresting(roi)) {
 	LARCV_CRITICAL() << "Did not find any interesting ROI and/or failed to construct Cosmic ROI..." << std::endl;
 	if(roi_producer_id != kINVALID_PRODUCER) {
@@ -168,7 +182,7 @@ namespace larcv {
       // first we find the division with a neutrino in it
       int idiv = findVertexDivision( roi );
       if ( idiv==-1 ) {
-	LARCV_ERROR() << "No divisions were found that contained an event vertex." <<std::endl;
+	LARCV_ERROR() << "No divisions were found that contained an event vertex.\n" << roi.dump() << std::endl;
       }
       larcv::hires::DivisionDef const& vertex_div = m_divisions.at( idiv );
 
@@ -180,6 +194,30 @@ namespace larcv {
       auto output_event_images = (larcv::EventImage2D*)(mgr.get_data( kProductImage2D,fOutputImageProducer) );
       LARCV_DEBUG() << "Crop " << fInputImageProducer << " Images." << std::endl;
       cropEventImages( *input_event_images, vertex_div, *output_event_images );
+
+      //
+      // Image is cropped based on DivisionDef which is found from ROI's vertex
+      // However ROI's vertex do not necessarily overlap with the same ROI's 2D bounding box
+      // in case of a neutrino interaction because the former is a neutrino interaction vertex
+      // while the latter is based on particles' trajectories that deposited energy. An example
+      // is a neutron produced at vertex and hit proton far away from the vertex. So, here, we
+      // ask, if it is non-cosmic type ROI, created image's meta overlaps with ROI's image meta.
+      //
+      if(roi.Type() != kROICosmic) {
+	try{
+	  for(auto const& img : output_event_images->Image2DArray())
+	    roi.BB(img.meta().plane()).overlap(img.meta());
+	}catch(const larbys& err) {
+	  ++fROISkippedEvent;
+	  LARCV_NORMAL() << "Found an event w/ neutrino vertex not within ROI bounding box (" << fROISkippedEvent << " events so far)" << std::endl;
+	  auto event_roi = (larcv::EventROI*)(mgr.get_data(roi_producer_id));
+	  for(auto const& img : output_event_images->Image2DArray()) LARCV_INFO() << img.meta().dump();
+	  for(auto const& aroi : event_roi->ROIArray()) LARCV_INFO() << aroi.dump();
+	  output_event_images->clear();
+	  return false;
+	}
+      }
+      
       if ( fDumpImages ) {
 	cv::Mat outimg;
 	for (int p=0; p<3; p++) {
@@ -195,7 +233,12 @@ namespace larcv {
 	  }
 	}
 	char testname[200];
- 	sprintf( testname, "test_tpcimage_%zu.png", input_event_images->event() );
+
+	if (hasmc)
+	  sprintf( testname, "test_tpcimage_%zu_mc.png", input_event_images->event() );
+	else
+	  sprintf( testname, "test_tpcimage_%zu.png", input_event_images->event() );
+
  	cv::imwrite( testname, outimg );
       }
 
@@ -235,7 +278,12 @@ namespace larcv {
 	    }
 	  }
 	  char testname[200];
-	  sprintf( testname, "test_seg_%zu.png", input_event_images->event() );
+
+	  if ( hasmc ) 
+	    sprintf( testname, "test_seg_%zu_mc.png", input_event_images->event() );
+	  else
+	    sprintf( testname, "test_seg_%zu.png", input_event_images->event() );
+
 	  cv::imwrite( testname, outimg );
 	}//if draw
       }// if crop seg
@@ -267,7 +315,12 @@ namespace larcv {
 	    }
 	  }
 	  char testname[200];
-	  sprintf( testname, "test_pmtraw_%zu.png", input_event_images->event() );
+
+	  if (hasmc )
+	    sprintf( testname, "test_pmtraw_%zu_mc.png", input_event_images->event() );
+	  else
+	    sprintf( testname, "test_pmtraw_%zu.png", input_event_images->event() );
+
 	  cv::imwrite( testname, pmtimg );
 
 	  cv::Mat outimg;
@@ -277,37 +330,78 @@ namespace larcv {
 	      outimg = cv::Mat::zeros( cropped.meta().rows(), cropped.meta().cols(), CV_8UC3 ); 
 	    for (int r=0; r<cropped.meta().rows(); r++) {
 	      for (int c=0; c<cropped.meta().cols(); c++) {
-		int val = std::min( 255, (int)cropped.pixel(r,c) );
-		val = std::max( 0, val );
-		outimg.at< cv::Vec3b >(r,c)[p] = (unsigned int)val;
+			int val = std::min( 255, (int)cropped.pixel(r,c) );
+			val = std::max( 0, val );
+			outimg.at< cv::Vec3b >(r,c)[p] = (unsigned int)val;
 	      }
 	    }
 	  }
-	  sprintf( testname, "test_pmtweighted_%zu.png", input_event_images->event() );
+
+	  if ( hasmc ) 
+	    sprintf( testname, "test_pmtweighted_%zu_mc.png", input_event_images->event() );
+	  else
+	    sprintf( testname, "test_pmtweighted_%zu.png", input_event_images->event() );
+
 	  cv::imwrite( testname, outimg );
 	}
       }
 
       // Finally let's store ROI w/ updated ImageMeta arrays
+      //
+      // 0) Retrieve output image array and input ROI array (for the latter "if exists")
+      // 1) Loop over ROI array (or single ROI for "cosmic" = input does not exist), ask overlap in 2D plane ImageMeta with each image
       auto output_pmtweighted_images = (larcv::EventImage2D*)(mgr.get_data(kProductImage2D,fOutputPMTWeightedProducer));
-      std::vector<larcv::ImageMeta> out_meta_v;
-      for(auto const& img : output_pmtweighted_images->Image2DArray()) out_meta_v.push_back(img.meta());
-      roi.SetBB(out_meta_v);
       auto output_rois = (larcv::EventROI*)(mgr.get_data(kProductROI,fOutputROIProducer));
-      output_rois->Emplace(std::move(roi));
-      
+
+      if(roi_producer_id != kINVALID_PRODUCER) {
+	// Retrieve input ROI array
+	auto event_roi = (larcv::EventROI*)(mgr.get_data(roi_producer_id));
+	// Loop over and store in output
+	
+	for(auto const& aroi : event_roi->ROIArray()) {
+	  ++fProcessedROI;
+	  std::vector<larcv::ImageMeta> out_meta_v;
+	  try {
+	    //LARCV_INFO() << "Creating particle ROI for: " << roi.dump() << std::endl;
+	    for(auto const& bb : aroi.BB()) {
+	      auto const& img_meta = output_pmtweighted_images->at(bb.plane()).meta();
+	      out_meta_v.push_back(img_meta.overlap(bb));
+	    }
+	  }catch(const larbys& err){
+	    LARCV_INFO() << "Found an ROI bounding box that has no overlap with neutrino vertex box. Skipping..." << std::endl;
+	    LARCV_INFO() << aroi.dump() << std::endl;
+	    out_meta_v.clear();
+	    ++fROISkipped;
+	  }
+	  
+	  ::larcv::ROI out_roi(aroi);
+	  out_roi.SetBB(out_meta_v);
+
+	  output_rois->Emplace(std::move(out_roi));
+	}
+      }else{
+	std::vector<larcv::ImageMeta> out_meta_v;
+	for(auto const& img : output_pmtweighted_images->Image2DArray()) out_meta_v.push_back(img.meta());
+	roi.SetBB(out_meta_v);
+	output_rois->Emplace(std::move(roi));
+      }
+
       return true;
     }
     
     void HiResImageDivider::finalize(TFile* ana_file)
-    {}
+    {
+      LARCV_WARNING() << "Skipped events due to vertex-box not overlapping with ROI: " << fROISkippedEvent << " / " << fProcessedEvent << std::endl;
+      LARCV_WARNING() << "Skipped ROI due to not within vertex-box: " << fROISkipped << " / " << fProcessedROI << std::endl;
+    }
 
     // -------------------------------------------------------
 
     bool HiResImageDivider::isInteresting( const larcv::ROI& roi ) {
       // Supposed to return the "primary" 
       //return (roi.Type() == kROIBNB || roi.Type() == kROICosmic);
-      return (roi.ParentPdgCode() == 0);
+      // Consider if this came from MCTruth: MCSTIndex should be kINVALID_USHORT
+      return (roi.MCSTIndex() == kINVALID_USHORT);
     }
 
     int HiResImageDivider::findVertexDivision( const larcv::ROI& roi ) {
@@ -333,42 +427,56 @@ namespace larcv {
       LARCV_DEBUG() << "Images to crop: "<< event_images.Image2DArray().size() << std::endl;
 
       for ( auto const& img : event_images.Image2DArray() ) {
+
 	int iplane = (int)img.meta().plane();
 	larcv::ImageMeta const& divPlaneMeta = div.getPlaneMeta( iplane );
+
+	// divPlaneMeta is based on un-compressed time axis.
+	// align the same scaling as img meta
+
+	auto scaled = divPlaneMeta;
+	
+	scaled.update(scaled.height()/img.meta().pixel_height(),scaled.cols());
+	
+	auto cropmeta = img.meta().overlap(scaled);
+
+	auto cropped = img.crop(cropmeta);
+
+	cropped.resize(fMaxWireImageWidth,fMaxWireImageWidth,0.);
+
+	LARCV_DEBUG() << "image: " << std::endl << img.meta().dump() ;
+	LARCV_DEBUG() << "div: " << std::endl << divPlaneMeta.dump() ;
+	LARCV_DEBUG() << "scaled: " << std::endl << scaled.dump() ;
+	LARCV_DEBUG() << "to-be-cropped: " << std::endl << cropmeta.dump() ;
+	LARCV_DEBUG() << "cropped: " << std::endl << cropped.meta().dump() ;
+	
+	/*
 	// we adjust the actual crop meta
-	int tstart = divPlaneMeta.max_y()-divPlaneMeta.height();
+	int tstart = divPlaneMeta.min_y();
 	int twidth = fMaxWireImageWidth*fTickDownSample;
 	int tmax = std::min( tstart+twidth, (int)img.meta().max_y() );
-	larcv::ImageMeta cropmeta( divPlaneMeta.width(), twidth,
-				   divPlaneMeta.width(), twidth,
-				   divPlaneMeta.min_x(), tmax );
 
-	LARCV_DEBUG() << "image: " << img.meta().height() << " x " << img.meta().width()
-		      << " t=[" << img.meta().min_y() << "," << img.meta().max_y() << "]"
-		      << " wmin=" << img.meta().min_x()
-		      << std::endl;
+	larcv::ImageMeta cropmeta( divPlaneMeta.width(), twidth,
+				   twidth, divPlaneMeta.width(), 
+				   divPlaneMeta.min_x(), tmax );
 	
-	LARCV_DEBUG() << "div: " << divPlaneMeta.height() << " x " << divPlaneMeta.width()
-		      << " t=[" << divPlaneMeta.min_y() << "," << divPlaneMeta.max_y() << "]"
-		      << " wmin=" << divPlaneMeta.min_x()
-		      << std::endl;
+	LARCV_INFO() << "image: " << std::endl << img.meta().dump() << std::endl;
 	
-	LARCV_DEBUG() << "crop: " << cropmeta.height() << " x " << cropmeta.width()
-		      << " t=[" << cropmeta.min_y()  << "," << cropmeta.max_y() << "]"
-		      << " wmin=" << cropmeta.min_x()
-		      << std::endl;
+	LARCV_INFO() << "div: " << std::endl << divPlaneMeta.dump() << std::endl;
+	
+	LARCV_INFO() << "crop: " << std::endl << cropmeta.dump() << std::endl;
 		
 	Image2D cropped = img.crop( cropmeta );
-	LARCV_DEBUG() << "cropped." << std::endl;
+	LARCV_INFO() << "cropped." << std::endl;
 	
-	cropped.resize( fMaxWireImageWidth*fTickDownSample, fMaxWireImageWidth, 0.0 );  // resize to final image size (and zero pad extra space)
-	LARCV_DEBUG() << "resized." << std::endl;
+	//cropped.resize( fMaxWireImageWidth*fTickDownSample, fMaxWireImageWidth, 0.0 );  // resize to final image size (and zero pad extra space)
+	LARCV_INFO() << "resized." << std::endl;
 
-	cropped.compress( (int)cropped.meta().height()/6, fMaxWireImageWidth, larcv::Image2D::kSum );
-	LARCV_DEBUG() << "downsampled. " << cropped.meta().height() << " x " << cropped.meta().width() << std::endl;
-	
+	//cropped.compress( (int)cropped.meta().height()/6, fMaxWireImageWidth, larcv::Image2D::kSum );
+	LARCV_INFO() << "downsampled. " << cropped.meta().height() << " x " << cropped.meta().width() << std::endl;
+	*/	
 	cropped_images.emplace_back( cropped );
-	LARCV_DEBUG() << "stored." << std::endl;
+	LARCV_INFO() << "stored." << std::endl;
       }//end of plane loop
 
       output_images.Emplace( std::move( cropped_images ) );

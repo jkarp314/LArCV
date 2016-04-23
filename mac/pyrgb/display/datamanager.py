@@ -5,7 +5,7 @@ from ..lib.iomanager        import IOManager
 
 from ..lib.compressed_image   import CompressedImage
 from ..lib.uncompressed_image import UnCompressedImage
-
+from ..lib.vic_image          import VicImage
 from .. import ROOT
 from .. import larcv
 
@@ -68,29 +68,32 @@ class DataManager(object):
             roidata = self.iom.iom.get_data(larcv.kProductROI,roiprod)
             roidata = roidata.ROIArray()
 
+        imdata  = self.iom.iom.get_data(larcv.kProductImage2D,imgprod)
+        print imdata.event_key()
+        imdata  = imdata.Image2DArray()
+        if imdata.size() == 0 : return (None,None,None)
+        image   = VicImage(imdata,roidata,planes)
+
         #Awkward true false
-        if highres == False:
-            print imgprod
-            imdata  = self.iom.iom.get_data(larcv.kProductImage2D,imgprod)
-            imdata  = imdata.Image2DArray()
-            if imdata.size() == 0 : return (None,None,None)
-            image   = CompressedImage(imdata,roidata,planes)
+        #if highres == False:
+        #    print imgprod
+        #    imdata  = self.iom.iom.get_data(larcv.kProductImage2D,imgprod)
+        #    imdata  = imdata.Image2DArray()
+        #    if imdata.size() == 0 : return (None,None,None)
+        #    image   = CompressedImage(imdata,roidata,planes)
             
-        else:
-            print imgprod
-            imdata  = self.iom.iom.get_data( larcv.kProductImage2D,imgprod)
-            imdata  = imdata.Image2DArray()
-            if imdata.size() == 0 : return (None,None,None)
-            image   = UnCompressedImage(imdata,roidata,planes)
+        #else:
+        #    print imgprod
+        #    imdata  = self.iom.iom.get_data( larcv.kProductImage2D,imgprod)
+        #    imdata  = imdata.Image2DArray()
+        #    if imdata.size() == 0 : return (None,None,None)
+        #    image   = UnCompressedImage(imdata,roidata,planes)
 
-
-        
-        
         if roiprod is None:
             return ( image.treshold_mat(imin,imax),
                      None,
-                     imdata )
+                     image.imgs )
     
         return ( image.treshold_mat(imin,imax),
                  image.parse_rois(),
-                 imdata )
+                 image.imgs )

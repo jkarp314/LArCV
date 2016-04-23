@@ -25,6 +25,7 @@ namespace larcv {
 
     template <class R, class S, class T, class U, class V, class W>
     void SuperaCore<R,S,T,U,V,W>::initialize() {
+      if(!_supera_fname.empty()) _larcv_io.set_out_file(_supera_fname);
       _larcv_io.initialize();
     }
     
@@ -35,7 +36,6 @@ namespace larcv {
       _store_chstatus = main_cfg.get<bool>("StoreChStatus");
       _larcv_io.set_out_file(main_cfg.get<std::string>("OutFileName"));
       
-      _producer_key      = main_cfg.get<std::string>("ProducerKey");
       _producer_digit    = main_cfg.get<std::string>("DigitProducer");
       _producer_simch    = main_cfg.get<std::string>("SimChProducer");
       _producer_wire     = main_cfg.get<std::string>("WireProducer");
@@ -119,7 +119,7 @@ namespace larcv {
       //
       if(_store_chstatus) {
 
-	auto event_chstatus = (::larcv::EventChStatus*)(_larcv_io.get_data(::larcv::kProductChStatus,_producer_key));
+	auto event_chstatus = (::larcv::EventChStatus*)(_larcv_io.get_data(::larcv::kProductChStatus,"tpc"));
 	for(auto const& id_status : _status_m)
 	  event_chstatus->Insert(id_status.second);
 
@@ -128,7 +128,7 @@ namespace larcv {
 	
       }
       
-      auto event_image_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,_producer_key));
+      auto event_image_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,"tpc"));
       
       //
       // 0) Construct Event-image ROI
@@ -167,8 +167,7 @@ namespace larcv {
 	}
 
 	// OpDigit
-	std::string op_producer = "op_" + _producer_key;
-	auto opdigit_image_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,op_producer));
+	auto opdigit_image_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,"pmt"));
 	::larcv::ImageMeta op_meta(32,1500,1500,32,0,1499);
 	::larcv::Image2D op_img(op_meta);
 	fill(op_img,opdigit_v);
@@ -194,10 +193,10 @@ namespace larcv {
       _mctp.UpdatePrimaryROI();
       auto int_roi_v = _mctp.GetPrimaryROI();
       
-      auto roi_v = (::larcv::EventROI*)(_larcv_io.get_data(::larcv::kProductROI,_producer_key));
+      auto roi_v = (::larcv::EventROI*)(_larcv_io.get_data(::larcv::kProductROI,"tpc"));
       
       for(auto& int_roi : int_roi_v) {
-	
+
 	//
 	// Primary: store overlapped ROI
 	//
@@ -207,7 +206,9 @@ namespace larcv {
 	  auto iter = image_meta_m.find(bb.plane());
 	  if(iter == image_meta_m.end()) continue;
 	  try{
-	    auto trimmed = (*iter).second.overlap(bb);
+	    auto trimmed = format_meta(bb, (*iter).second,
+				       _event_comp_rows[bb.plane()],
+				       _event_comp_cols[bb.plane()]);
 	    pri_bb_v.push_back(trimmed);
 	  }catch(const ::larcv::larbys& err){
 	    break;
@@ -222,6 +223,7 @@ namespace larcv {
 	}
 	
 	int_roi.first.SetBB(pri_bb_v);
+
 	LARCV_INFO() << "Registering Interaction..." << std::endl
 		     << int_roi.first.dump() << std::endl;
 	roi_v->Append(int_roi.first);
@@ -277,7 +279,9 @@ namespace larcv {
 	    auto iter = image_meta_m.find(bb.plane());
 	    if(iter == image_meta_m.end()) continue;
 	    try{
-	      auto trimmed = (*iter).second.overlap(bb);
+	      auto trimmed = format_meta(bb, (*iter).second,
+					 _event_comp_rows[bb.plane()],
+					 _event_comp_cols[bb.plane()]);
 	      sec_bb_v.push_back(trimmed);
 	    }catch(const ::larcv::larbys& err) {
 	      break;
@@ -353,8 +357,7 @@ namespace larcv {
       }
       
       // OpDigit
-      std::string op_producer = "op_" + _producer_key;
-      auto opdigit_image_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,op_producer));
+      auto opdigit_image_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,"pmt"));
       ::larcv::ImageMeta op_meta(32,1500,1500,32,0,1499);
       ::larcv::Image2D op_img(op_meta);
       fill(op_img,opdigit_v);
@@ -378,7 +381,10 @@ namespace larcv {
 	  if(roi.MCSTIndex() != ::larcv::kINVALID_INDEX) continue;
 	  auto const& roi_meta = roi.BB(p);
 	  // Retrieve cropped full resolution image
-	  auto int_img_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,Form("%s_int%02d",_producer_key.c_str(),roi.MCTIndex())));
+	  auto int_img_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,
+								       Form("tpc_int%02d",roi.MCTIndex()))
+						    );
+									    
 	  LARCV_INFO() << "Cropping an interaction image (high resolution) @ plane " << p << std::endl
 		       << roi_meta.dump() << std::endl;
 	  auto hires_img = _full_image.crop(roi_meta);
@@ -401,8 +407,7 @@ namespace larcv {
       //
       // Semantic Segmentation
       //
-      std::string sem_producer = "segment_" + _producer_key;
-      auto event_semimage_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,sem_producer));
+      auto event_semimage_v = (::larcv::EventImage2D*)(_larcv_io.get_data(::larcv::kProductImage2D,"segment"));
       std::vector<larcv::Image2D> sem_images;
       /*// For full plane image + full resolution
       for(auto const& plane_img : image_meta_m) 
@@ -419,12 +424,84 @@ namespace larcv {
 	}
 	break;
       }
-      if(!sem_images.empty())
+      if(!sem_images.empty()) {
 	fill(sem_images,mctrack_v,mcshower_v,simch_v,_tpc_tick_offset);
+	for(auto& img : sem_images) {
+	  img.compress(img.meta().rows()/_event_comp_rows[img.meta().plane()],
+		       img.meta().cols()/_event_comp_cols[img.meta().plane()],larcv::Image2D::kMaxPool);
+	}
+      }      
       event_semimage_v->Emplace(std::move(sem_images));
       
       _larcv_io.save_entry();
       return true;      
+    }
+
+    template<class R, class S, class T, class U, class V, class W>    
+    larcv::ImageMeta SuperaCore<R,S,T,U,V,W>::format_meta(const larcv::ImageMeta& part_image,
+							  const larcv::ImageMeta& event_image,
+							  const size_t modular_row,
+							  const size_t modular_col)
+    {
+      LARCV_INFO() << "Before format (plane " << part_image.plane() << ") ... " << std::endl
+		   << part_image.dump() << std::endl;
+      if(event_image.rows() < modular_row || event_image.cols() < modular_col) {
+	LARCV_ERROR() << "Event image too small to format ROI!" << std::endl;
+	throw larbys();
+      }
+      double min_x  = part_image.min_x();
+      double max_y  = part_image.max_y();
+      double width  = part_image.width();
+      double height = part_image.height();
+      size_t rows   = part_image.rows();
+      size_t cols   = part_image.cols();
+
+      if(modular_col > 1 && part_image.cols() % modular_col) {
+	int npixels = (modular_col - (part_image.cols() % modular_col));
+	if(event_image.width() < (width + npixels * part_image.pixel_width()))  npixels -= modular_col;
+	cols += npixels;
+	width += part_image.pixel_width() * npixels;
+	if(npixels > 0) {
+	  // If expanded, make sure it won't go across event_image boundary
+	  if( (min_x + width) < event_image.max_x() ) {
+	    LARCV_INFO() << "X: " << min_x << " => " << min_x + width
+			 << " exceeds event boundary " << event_image.max_x() << std::endl;
+	    min_x = event_image.max_x() - width; 
+	  }else if(min_x < event_image.min_x()){
+	    LARCV_INFO() << "X: " << min_x << " => " << min_x + width
+			 << " exceeds event boundary " << event_image.min_x() << std::endl;
+	    min_x = event_image.min_x();
+	  }
+	}
+      }
+
+      if(modular_row > 1 && part_image.rows() % modular_row) {
+	int npixels = (modular_row - (part_image.rows() % modular_row));
+	if(event_image.height() < (height + npixels * part_image.pixel_height()))  npixels -= modular_row;
+	rows += npixels;
+	height += part_image.pixel_height() * npixels;
+	if(npixels > 0) {
+	  // If expanded, make sure it won't go across event_image boundary
+	  if( (max_y - height) < event_image.min_y() ) 
+	    { max_y = event_image.min_y() + height; }
+	  else if(max_y > event_image.max_y())
+	    { max_y = event_image.max_y(); }
+	}
+      }
+
+      larcv::ImageMeta res(width,height,
+			   rows / modular_row, cols / modular_col,
+			   min_x,max_y,
+			   part_image.plane());
+
+      LARCV_INFO() << "After format (plane " << res.plane() << ") ... " << std::endl
+		   << res.dump() << std::endl;
+      
+      res = event_image.overlap(res);
+      
+      LARCV_INFO() << "After format (plane " << res.plane() << ") ... " << std::endl
+		   << res.dump() << std::endl;
+      return res;
     }
 
     template<class R, class S, class T, class U, class V, class W>

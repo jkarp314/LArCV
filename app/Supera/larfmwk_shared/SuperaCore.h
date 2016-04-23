@@ -70,9 +70,15 @@ namespace larcv {
       bool use_mc() const { return _use_mc; }
       bool store_chstatus() const { return _store_chstatus; }
       const ::larcv::logger& logger() const { return _logger;}
+      void supera_fname(std::string name) { _supera_fname = name; }
 
     private:
 
+      larcv::ImageMeta format_meta(const larcv::ImageMeta& part_image,
+					      const larcv::ImageMeta& event_image,
+					      const size_t modular_row,
+					      const size_t modular_col);
+	
       void fill(Image2D& img, const std::vector<S>& wires, const int time_offset=0);
       void fill(Image2D& img, const std::vector<R>& opdigit_v, const int time_offset=0);
       void fill(std::vector<Image2D>& img,
@@ -87,7 +93,6 @@ namespace larcv {
       std::vector<std::pair<unsigned short,unsigned short> > _channel_to_plane_wire;
       larcv::logger _logger;
       larcv::IOManager _larcv_io;
-      std::string _producer_key;
       std::string _producer_digit;
       std::string _producer_simch;
       std::string _producer_wire;
@@ -107,6 +112,7 @@ namespace larcv {
       bool _configured;
       bool _use_mc;
       bool _store_chstatus;
+      std::string _supera_fname;
     };
   }
 }
