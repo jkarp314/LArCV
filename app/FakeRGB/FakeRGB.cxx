@@ -2,15 +2,16 @@
 #define __FAKERGB_CXX__
 
 #include "FakeRGB.h"
-#include "DataFormat/Image2D.h"
-#include "DataFormat/EventImage2D.h"
 
+#include "DataFormat/Image2D.h"
+
+#include "DataFormat/EventImage2D.h"
 #include "DataFormat/EventROI.h"
 
 namespace larcv {
-
+  
   static FakeRGBProcessFactory __global_FakeRGBProcessFactory__;
-
+  
   FakeRGB::FakeRGB(const std::string name)
     : ProcessBase(name)
   {}
@@ -55,15 +56,19 @@ namespace larcv {
     //allocate the space for 3 fake planes
     std::vector<Image2D> fake_color;
     fake_color.reserve(3);
-
+    
     for(unsigned i=0; i<3; ++i) {
-	Image2D p(plane_meta.rows(),plane_meta.cols());
-	fake_color.emplace_back(std::move(p));
-      }
+      ImageMeta im(plane_meta.width(), plane_meta.height(),
+		   plane_meta.rows() , plane_meta.cols(),
+		   plane_meta.tl().x , plane_meta.tl().y,
+		   i);
+      Image2D p(im);
+      fake_color.emplace_back(std::move(p));
+    }
     
     for(unsigned i = 0; i < plane_meta.rows(); ++i) {
       for(unsigned j = 0; j < plane_meta.cols(); ++j) {
-
+	
 	float r,g,b;
 
 	auto px = plane_img.pixel(i,j);
@@ -86,10 +91,14 @@ namespace larcv {
     }
 
     out_image_v->Emplace(std::move(fake_color));
-    out_roi_v = tpc_event_roi_v;
+    
+    
+    //have to make a copy right
+    out_roi_v->Set(tpc_event_roi_v->ROIArray());
+
     return true;
   }
-
+  
   void FakeRGB::finalize(TFile* ana_file)
   {}
 
