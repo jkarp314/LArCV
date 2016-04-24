@@ -33,12 +33,16 @@ for j in xrange(3):
     imm[:,:,j] = imm[:,:,j].T
 
 imm = imm[::-1,:,:]
-imm = imm[:, :, (2, 1, 0)] 
+
+#imm = imm[:, :, (2, 1, 0)] 
 
 fig,ax = plt.subplots(figsize = (12,12))
 
 ax = plt.subplot(2,2,1)
-plt.imshow(normalize_image(imm))
+
+imm = imm.astype(np.uint8)
+plt.imshow(imm[ : , : , (2,1,0) ])
+           
 plt.axis('off')
 
 for i in xrange(3):
