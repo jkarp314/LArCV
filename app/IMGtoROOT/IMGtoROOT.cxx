@@ -70,8 +70,5 @@ namespace larcv {
   void IMGtoROOT::finalize(TFile* ana_file)
   {}
 
-
-
-
 }
 #endif
