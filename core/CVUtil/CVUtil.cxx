@@ -33,7 +33,7 @@ namespace larcv {
     std::vector<Image2D> img_v;
     img_v.reserve(3);
     for(unsigned i=0;i<3;++i) {
-      ImageMeta meta(image.cols,image.rows,image.cols, image.rows, 0., 0.);
+      ImageMeta meta(image.cols,image.rows,image.cols, image.rows, 0., 0.,i);
       Image2D larcv_img(meta);
       img_v.emplace_back(std::move(larcv_img));
     }

@@ -26,14 +26,14 @@ namespace larcv {
 
   void IMGtoROOT::initialize()
   {
-
-    LARCV_INFO() << "Loading " << _file_list;
+    
+    LARCV_DEBUG() << "Loading " << _file_list << "\n";
     std::ifstream source_file(_file_list.c_str());
     
     if (source_file.is_open()) {
       std::string line;
       while (source_file >> line) {
-	LARCV_INFO() << "Got" << line;
+	LARCV_INFO() << "Got " << line << "\n";
 	_image_v.emplace_back(line);
       }
     } else {
@@ -46,26 +46,31 @@ namespace larcv {
   {
 
     //output
-    auto out_image_v = (EventImage2D*)(mgr.get_data(kProductImage2D,_out_image_producer));
-    
+    LARCV_INFO() << "Processing " << _image_v.size() << " images\n";
     for(unsigned i=0;i<_image_v.size();++i) {
+      auto out_image_v = (EventImage2D*)(mgr.get_data(kProductImage2D,_out_image_producer));    
 
       mgr.set_id(1,0,i);
+
+      LARCV_DEBUG() << "Processing image " << _image_v[i] << "\n";
 
       auto image2d_v = imread_v( _image_v[i] );
       
       out_image_v->Emplace(std::move(image2d_v));
+      
+      //this is annoying, ProcessDriver calles save_entry no matter what, don't call on last image
+      if ( i != _image_v.size() - 1 ) mgr.save_entry(); 
     }
 
+    LARCV_INFO() << "Done processing\n";
 
-    mgr.finalize();
     return true;
   }
   
   void IMGtoROOT::finalize(TFile* ana_file)
-  {   
+  {}
 
-  }
+
 
 
 }

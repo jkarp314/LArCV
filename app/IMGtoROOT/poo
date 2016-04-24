@@ -1,4 +1,4 @@
-#!/usr/bin python
+#!/usr/bin/python
 import ROOT, sys, os
 
 for l in [x for x in os.listdir(os.environ['LARCV_LIBDIR']) if x.endswith('.so')]:
@@ -6,17 +6,17 @@ for l in [x for x in os.listdir(os.environ['LARCV_LIBDIR']) if x.endswith('.so')
 
 from ROOT import larcv
 
-if len(sys.argv) < 1:
+if len(sys.argv) < 2:
 
    print 'Usage: python',sys.argv[0],'CONFIG_FILE'
    sys.exit(1)
 
 proc = larcv.ProcessDriver('ProcessDriver')
-
+print "Configuring with {}".format(sys.argv[1])
 proc.configure(sys.argv[1])
 
 proc.initialize()
 
-proc.process()
+proc.process_entry()
 
 proc.finalize()
