@@ -73,7 +73,8 @@ namespace larcv {
 
       std::vector<ROI> roi_v;
       out_roi_v->Emplace(std::move(roi_v));
-
+      
+      LARCV_DEBUG() << "COSMIC SPOTTED\n";
       return true;
     }
 
@@ -87,8 +88,8 @@ namespace larcv {
 
     // Sometimes bbox is out of bounds... fix that? forget it
 
-    if ( plane_bb.min_x() > plane_meta.max_x() ) return false;
-    if ( plane_bb.min_y() > plane_meta.max_y() ) return false;
+    if ( plane_bb.min_x() >= plane_meta.max_x() ) return false;
+    if ( plane_bb.min_y() >= plane_meta.max_y() ) return false;
 	
     auto cropped_bb = plane_bb.overlap(plane_meta);
 
