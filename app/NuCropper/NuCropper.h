@@ -16,6 +16,10 @@
 
 #include "Processor/ProcessBase.h"
 #include "Processor/ProcessFactory.h"
+
+#include "DataFormat/ImageMeta.h"
+
+#include <random>
 namespace larcv {
 
   /**
@@ -44,18 +48,20 @@ namespace larcv {
 
   private:
 
-    int _plane_image;
+    int _plane;
+
+    int _crop_size;
     
     std::string _in_img_producer;
     std::string _out_img_producer;
-
-
     std::string _in_roi_producer;
     std::string _out_roi_producer;
 
+    std::random_device _rd;
+    std::mt19937 _gen;
 
 
-    
+    ImageMeta random_crop(int crop_size, const ImageMeta& img_meta);
   };
 
   /**
