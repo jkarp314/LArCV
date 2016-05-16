@@ -70,11 +70,13 @@ namespace larcv {
       for(unsigned j = 0; j < plane_meta.cols(); ++j) {
 	
 	float r,g,b;
-
-	auto px = plane_img.pixel(i,j);
 	
+	auto px = plane_img.pixel(i,j);
+	px -= _imin;
+	
+	if ( px < 0 )     px = 0;	
 	if ( px > _imax ) px = _imax;
-	if ( px < _imin ) px = 0;
+
 	
 	color(px,r,g,b);
 
@@ -89,9 +91,8 @@ namespace larcv {
 	
       }
     }
-
-    out_image_v->Emplace(std::move(fake_color));
     
+    out_image_v->Emplace(std::move(fake_color));
     
     //have to make a copy right
     out_roi_v->Set(tpc_event_roi_v->ROIArray());
@@ -99,9 +100,7 @@ namespace larcv {
     return true;
   }
   
-  void FakeRGB::finalize(TFile* ana_file)
-  {}
-
+  void FakeRGB::finalize() {}
 
   //thanks kazu
   void FakeRGB::color( float ADC, float&r, float&g, float& b ) {
@@ -115,7 +114,7 @@ namespace larcv {
       r = 1.0; g = 0; b = 0;
       return;
     }
-
+    
     // 0 to 1.0 MIPs: blue to green                                                                                                             
     if ( ADC < _adc_mip ) {
       float colorlen = _adc_mip - _adc_min;

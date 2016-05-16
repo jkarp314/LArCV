@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <map>
+#include <set>
 #include <TTree.h>
 #include <TChain.h>
 #include <TFile.h>
@@ -26,25 +27,24 @@
 #include "ProductMap.h"
 namespace larcv {
   /**
-     \class IOManager
-     User defined class IOManager ... these comments are used to generate
-     doxygen documentation!
+    \class IOManager
+    LArCV file IO hanlder class: it can read/write LArCV file.
   */
   class IOManager : public larcv::larcv_base {
     
   public:
-
+    /// Three IO modes: read, write, or read-and-write
     enum IOMode_t { kREAD, kWRITE, kBOTH };
 
     /// Default constructor
     IOManager(IOMode_t mode=kREAD, std::string name="IOManager");
 
-    /// Configuration PSet construction
+    /// Configuration PSet construction so you don't have to call setter functions
     IOManager(const PSet& cfg);
     
     /// Default destructor
     ~IOManager(){}
-
+    /// IO mode accessor
     IOMode_t io_mode() const { return _io_mode;}
     void reset();
     void add_in_file(const std::string filename, const std::string dirname="");
@@ -85,6 +85,13 @@ namespace larcv {
     }
 
     const EventBase& event_id() const { return ( _set_event_id.valid() ? _set_event_id : _event_id ); }
+
+    const std::vector<std::string> producer_list(const ProductType_t type) const
+    {
+      std::vector<std::string> res;
+      for(auto const& key_value : _key_list[type]) res.push_back(key_value.first);
+      return res;
+    }
     
   private:
     void   set_id();

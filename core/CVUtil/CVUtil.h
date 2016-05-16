@@ -9,14 +9,13 @@
 
 namespace larcv {
 #ifndef __CINT__
-  cv::Mat as_mat(const Image2D& larcv_img);
+	/// Image2D to cv::Mat converter (not supported in ROOT5 CINT)
+	cv::Mat as_mat(const Image2D& larcv_img);
 #endif
-  
   Image2D imread(const std::string file_name);
   Image2D imread_gray(const std::string file_name);
 
   std::vector<Image2D> imread_v(const std::string file_name);
-
 
 }
 
