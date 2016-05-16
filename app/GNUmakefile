@@ -8,7 +8,6 @@ endif
 # Define directories to be compile upon a global "make"...
 #
 SUBDIRS := ImageMod Filter PMTWeights HiResDivider Merger APICaffe JPEGDump FakeRGB IMGtoROOT
-
 ifdef LARLITE_BASEDIR
 SUBDIRS += Supera/APILArLite
 endif
