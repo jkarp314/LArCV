@@ -11,6 +11,8 @@
 #include "opencv/cv.h"
 #include "opencv2/opencv.hpp"
 
+#include <fstream>
+
 namespace larcv {
 
   static JPEGDumpProcessFactory __global_JPEGDumpProcessFactory__;
@@ -54,11 +56,12 @@ namespace larcv {
       auto hiresrois   = (larcv::EventROI*)(mgr.get_data(kProductROI,_in_roi_producer));
       
       ROIType_t roi_type = kROICosmic;
+      ROI roi_v;
       for(auto const& roi : hiresrois->ROIArray()) {
 	if(roi.MCSTIndex() != kINVALID_USHORT) continue;
 	roi_type = roi.Type();
+	roi_v = roi;
 	if(roi_type == kROIUnknown) roi_type = PDG2ROIType(roi.PdgCode());
-	// LARCV_INFO() << roi.dump() << std::endl;
 	break;
       }
 
@@ -66,9 +69,45 @@ namespace larcv {
 
       if (_pars.find(particle) == _pars.end()) 
 	{ std::cout << particle << std::endl; return false; }
+
+      std::stringstream oss;
+      oss << "/stage/vgenty/Singledevkit7/Annotations/" << particle << "_" << _pars[particle] << ".txt";
+      
+      std::stringstream pss;
+
+      std::ofstream ofile;
+      ofile.open(oss.str());
+      
+      larcv::Image2D const& hiresimage = hiresimages->at(_plane_image);
+      auto& imm = hiresimage.meta();
+        
+      auto& bbox = roi_v.BB(_plane_image);
+
+      auto x = bbox.bl().x - imm.bl().x;
+      auto y = bbox.bl().y - imm.bl().y;
+        
+      auto dw_i = imm.cols() / ( imm.tr().x - imm.bl().x );
+      auto dh_i = imm.rows() / ( imm.tr().y - imm.bl().y );
+        
+      auto w_b = bbox.tr().x - bbox.bl().x;
+      auto h_b = bbox.tr().y - bbox.bl().y;
+
+      auto x1 = x*dw_i;
+      auto y1 = y*dh_i;
+
+      auto x2 = x1 + w_b*dw_i;
+      auto y2 = y1 + h_b*dh_i;
+      
+      y1 = 576 - y1;
+      y2 = 576 - y2;
+
+      pss << particle << " " << x1 << " " << y1 << " " << x2 << " " << y2 << "\n";
+      
+      ofile << pss.str();
+      ofile.close();      
       
       cv::Mat outimg;
-      larcv::Image2D const& hiresimage = hiresimages->at(_plane_image);
+      //larcv::Image2D const& hiresimage = hiresimages->at(_plane_image);
       outimg = cv::Mat::zeros( hiresimage.meta().rows(), hiresimage.meta().cols(), CV_8UC3 );
 
       for (size_t r=0; r<hiresimage.meta().rows(); r++) {
@@ -104,11 +143,10 @@ namespace larcv {
       	  outimg.at< cv::Vec3b >(r,c)[2] = (int) rr;
       	}	  
       }
+
       
       std::stringstream ss;
-      
-      ss << "/stage/vgenty/yolodumpcolor/" << particle << "_" << _pars[particle] << ".JPEG";
-
+      ss << "/stage/vgenty/Singledevkit7/JPEGImages/" << particle << "_" << _pars[particle] << ".JPEG";
       cv::imwrite( ss.str(), outimg );
       _pars[particle]++;      
       return true;
